@@ -1,0 +1,137 @@
+---
+title: "Kalman filter"
+author: "Gellért Peresztegi-Nagy"
+date: "4/16/2017"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+```
+
+##Task 1.
+
+```{r}
+count = 500
+x <- rep(0,count)
+x[1] <- 0
+
+sd_v <- 40
+v <- rep(0,count)
+v[1] <- 0
+v_change <- rnorm(1,mean = 10,sd = sd_v) 
+
+s <- seq(1,count,1)
+
+for(t in 2:count){
+  x[t] <- x[t-1] + v[t-1]
+  v[t] <- v[t-1] + v_change
+  v_change <- rnorm(1,mean = 0,sd = sd_v)
+}
+
+data <- rbind(data.frame(x = s, P = x, label = "altitude"),
+              data.frame(x = s, P = v, label = "velocity"),
+              data.frame(x = s, P = t, label = "time"))
+ggplot(subset(data,label == "altitude" ), aes(x = x, y = P, color = label)) + geom_line()
+```
+
+
+##Task 2.
+
+
+```{r}
+count = 500
+x <- rep(0,count)
+x[1] <- 0
+
+sd_v <- 40
+v <- rep(0,count)
+v[1] <- 0
+v_change <- rnorm(1,mean = 10,sd = sd_v) 
+
+sd_z <- 1000
+z <- rep(0,count)
+z[1] <- rnorm(1,mean = x[1],sd = sd_z) 
+
+s <- seq(1,count,1)
+
+for(t in 2:count){
+  x[t] <- x[t-1] + v[t-1]
+  v[t] <- v[t-1] + v_change
+  v_change <- rnorm(1,mean = 0,sd = sd_v) 
+  z[t] <- rnorm(1,mean = x[t],sd = sd_z) 
+}
+
+data <- rbind(data.frame(x = s, P = x, label = "altitude"),
+              data.frame(x = s, P = v, label = "velocity"),
+              data.frame(x = s, P = z, label = "measurement"),
+              data.frame(x = s, P = t, label = "time"))
+ggplot(subset(data,label == "altitude"  | label=="measurement"), aes(x = x, y = P, color = label)) + geom_line()
+ggplot(subset(data,label == "velocity"), aes(x = x, y = P, color = label)) + geom_line()
+```
+
+##Task 3.
+
+```{r}
+count = 500
+x <- rep(0,count)
+x[1] <- 0
+
+sd_v <- 40
+v <- rep(0,count)
+v[1] <- 0
+v_change <- rnorm(1,mean = 10,sd = sd_v) 
+
+sd_z <- 1000
+z <- rep(0,count)
+z[1] <- rnorm(1,mean = x[1],sd = sd_z)
+
+x[2] <- x[1] + v[1]
+v[2] <- v[1] + v_change
+v_change <- rnorm(1,mean = 0,sd = sd_v) 
+z[2] <- rnorm(1,mean = x[2],sd = sd_z)
+
+mean_xt <- rep(0,count)
+mean_xt[1] = z[1]
+mean_xt[2] = z[2]
+sd_xt <- rep(0,count)
+sd_xt[1] = sd_z
+sd_xt[2] = sd_z
+
+mean_vt <- rep(0,count)
+mean_vt[1] = z[2] - z[1]
+sd_vt <- rep(0,count)
+sd_vt[1] = 2 * sd_z
+
+s <- seq(1,count,1)
+
+for(t in 3:count){
+  x[t] <- x[t-1] + v[t-2] + v_change
+  z[t] <- rnorm(1,mean = x[t-1],sd = sd_z)
+  
+  mean_xt[t] <- (z[t]/sd_z^2 + (mean_xt[t-1] + mean_vt[t-1])/(sd_xt[t-1]^2 + sd_vt[t-2]^2 + sd_v^2)) / (1/(sd_z^2) + 1/(sd_xt[t-1]^2 + sd_vt[t-2]^2 + sd_v^2))
+  sd_xt[t] <- 1/sqrt(1/(sd_z^2) + 1/(sd_xt[t-1]^2 + sd_vt[t-2] + sd_v^2))
+  
+  mean_vt[t-1] <- mean_xt[t] - mean_xt[t-1]
+  sd_vt[t-1] <- sqrt(sd_xt[t] + sd_xt[t-1])
+  
+  v[t] <- v[t-1] + v_change
+  v_change <- rnorm(1,mean = 0,sd = sd_v) 
+}
+
+mean_vt[count] <- mean_xt[count] - mean_xt[count-1]
+sd_vt[count] <- sqrt(sd_xt[count] + sd_xt[count-1])
+
+data <- rbind(data.frame(x = s, P = x, label = "prior altitude"),
+              data.frame(x = s, P = v, label = "prior velocity"),
+              data.frame(x = s, P = z, label = "measurement"),
+              data.frame(x = s, P = mean_xt, label = "posterior altitude"),
+              data.frame(x = s, P = sd_xt, label = "posterior alt. sd"),
+              data.frame(x = s, P = mean_vt, label = "posterior velocity"),
+              data.frame(x = s, P = sd_vt, label = "posterior vel. sd"),
+              data.frame(x = s, P = t, label = "time"))
+ggplot(subset(data,label == "prior altitude"), aes(x = x, y = P, color = label)) + geom_line()
+ggplot(subset(data,label == "posterior altitude"), aes(x = x, y = P, color = label)) + geom_line()
+ggplot(subset(data,label == "posterior altitude" | label == "posterior alt. sd"), aes(x = x, y = P, color = label)) + geom_line()
+ggplot(subset(data,label == "posterior velocity" | label == "posterior vel. sd"), aes(x = x, y = P, color = label)) + geom_line()
+```
